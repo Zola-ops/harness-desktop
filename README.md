@@ -74,7 +74,11 @@ npm run dist:win     # 构建 Windows 安装包（nsis + portable，需 Windows 
 - **模型切换的 reasoningEffort 自适应**：切换模型时自动查询目标模型的能力目录，仅当目标模型支持当前 reasoningEffort 时才带上，避免视觉/图片/视频模型因不支持 reasoning 而报 `model-unavailable`
 - **自定义 UI**：设置 → 自定义 UI（壳层）。背景选纯色或本地图片（可调模糊 0-40、暗化 0-0.9）；主/次强调色任意取色；圆角 4-20px；顶栏/面板不透明度 30%-100%（毛玻璃效果随透明度增强）。所有改动实时预览，「保存设置」持久化；「重置为默认」一键还原。harness 页面本身的定制仍用「外观 → 自定义 CSS」
 - **移动端联动**：设置 → 移动端联动 → 勾选启用。桌面端起一个 `0.0.0.0:<端口>` 的透明代理（默认 3180，HTTP + WebSocket 全转发并附加 CORS 头），手机连同一 Wi-Fi 后扫码或输入 `http://<电脑局域网IP>:3180` 即可访问完整 harness（含实时事件流）。代理会对 HTML 页面自动注入 `crypto.randomUUID` polyfill，兼容旧版手机浏览器。**安全提醒**：harness 可执行命令，仅限可信局域网、用后即关；公共网络禁止开启
-- **公网隧道（移动网访问）**：设置 → 公网隧道。手机不在同一 Wi-Fi 时使用 Cloudflare quick tunnel 生成 `https://*.trycloudflare.com` 公网地址（首次自动下载 cloudflared 约 40MB），扫码或复制地址即可从任意网络访问。每次启动生成新地址，停止即失效。**更强安全提醒**：公网地址人人可访问，用完立即停止；若网络无法连通 Cloudflare API 会明确报错，此时请改用局域网方式
+- **公网访问（移动网，三档可选）**：设置 → 网络。
+  - **SSH 反向隧道（推荐，自持服务器）**：填服务器地址 + SSH 私钥路径 + 域名即可。复用 22 端口，服务器无需开放新端口；启动时自动拉起 LAN 代理、自动清理服务器残留转发、自动把目录选择器切为 native（Mac 本机弹窗、结果回传远程）。适合腾讯云轻量等默认仅开放 22/80/443 的服务器，配合 nginx 反代 + Let's Encrypt 实现 `https://<域名>` 访问
+  - **frp 内网穿透**：自持服务器跑 frps，Mac 跑 frpc 自动连接（需服务器放行 frps 通信端口）；配套 `scripts/setup-frps.sh` 一键部署（frps + systemd + Nginx + certbot）
+  - **Cloudflare 隧道（免服务器）**：生成 `https://*.trycloudflare.com` 地址，首次自动下载 cloudflared；国内网络数据面可能被干扰，作为备用
+  - 启动公网访问时 LAN 代理会自动覆盖 Origin/Referer 为本地 harness 地址，手机访问 `host.*`/`settings.*` 等敏感 RPC 不再 403
 - **主题动效**：顶栏 ◐ 按钮循环切换 系统→浅色→深色，伴随径向光晕扩散动画；状态灯运行中呼吸脉动
 - **自定义 CSS**：设置 → 外观 → 自定义 CSS，保存后注入 harness 页面（改完点「重新加载页面」立即生效）
 

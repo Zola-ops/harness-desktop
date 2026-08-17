@@ -1,6 +1,6 @@
 {
   "name": "dsh-z",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DSH-Z — 可定制的 DeepSeek Harness 桌面端（内嵌 Web GUI + 原生能力）",
   "main": "src/main/index.js",
   "license": "MIT",
