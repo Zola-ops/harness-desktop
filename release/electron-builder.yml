@@ -67,5 +67,5 @@ nsis:
 # 发布目标（配置 GH_TOKEN 后 electron-updater 可用）
 publish:
   provider: github
-  owner: harness-desktop
+  owner: Zola-ops
   repo: harness-desktop
