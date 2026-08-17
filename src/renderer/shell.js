@@ -1345,11 +1345,14 @@ function tooltipFor(node) {
 
 function updateBoardTooltip(node, clientX, clientY) {
   const tip = $('board-tooltip');
+  if (!tip) return;
   if (!node) {
     tip.classList.add('hidden');
     return;
   }
-  const wrap = $('board-canvas-wrap').getBoundingClientRect();
+  const wrapEl = $('board-canvas-wrap');
+  if (!wrapEl) return; // 看板未渲染/已关闭时不显示 tooltip
+  const wrap = wrapEl.getBoundingClientRect();
   tip.innerHTML = tooltipFor(node);
   tip.classList.remove('hidden');
   tip.style.left = '';
