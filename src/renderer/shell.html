@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>Harness Desktop</title>
+  <link rel="stylesheet" href="shell.css" />
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header id="titlebar">
+    <div class="tb-left">
+      <span class="logo-dot" id="logo-dot"></span>
+      <span class="tb-title">Harness Desktop</span>
+      <span class="tb-status" id="tb-status">正在连接…</span>
+    </div>
+    <div class="tb-right">
+      <button class="tb-btn" id="btn-command" title="命令面板 (⌘K)">⌘K 命令</button>
+      <button class="tb-btn" id="btn-board" title="知识看板">◈ 看板</button>
+      <button class="tb-btn" id="btn-skill" title="Skill 管理">🧩 Skill</button>
+      <button class="tb-btn" id="btn-new-window" title="新窗口 (⇧⌘N)">＋ 新窗口</button>
+      <button class="tb-btn" id="btn-theme" title="切换主题">◐ 主题</button>
+      <button class="tb-btn" id="btn-browser" title="在系统浏览器中打开">↗ 浏览器</button>
+      <button class="tb-btn" id="btn-settings" title="设置">⚙ 设置</button>
+    </div>
+  </header>
+
+  <!-- harness 页面 -->
+  <main id="stage">
+    <webview id="view" partition="persist:harness-gui" allowpopups="false"></webview>
+    <div id="view-error" class="hidden">
+      <div class="error-card">
+        <div class="error-title">Harness 服务未运行</div>
+        <div class="error-detail" id="error-detail">等待服务启动…</div>
+        <div class="error-actions">
+          <button class="btn primary" id="btn-retry">重试</button>
+          <button class="btn" id="btn-start-harness">启动服务</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 命令面板 -->
+  <div id="palette-mask" class="hidden">
+    <div id="palette">
+      <div class="palette-head">
+        <input id="palette-input" type="text" placeholder="输入 harness 命令，例如 /plan 或 /help" spellcheck="false" autocomplete="off" />
+        <select id="palette-session" title="目标会话"></select>
+      </div>
+      <div class="palette-hint">Enter 执行 · Esc 关闭 · 命令由 harness 直接解析执行，不经过模型</div>
+      <div class="palette-history" id="palette-history"></div>
+    </div>
+  </div>
+
+  <!-- 设置抽屉 -->
+  <div id="drawer-mask" class="hidden">
+    <aside id="drawer">
+      <div class="drawer-head">
+        <span>设置</span>
+        <button class="icon-btn" id="btn-drawer-close" title="关闭">✕</button>
+      </div>
+      <div class="drawer-body">
+        <section>
+          <h3>Harness 服务</h3>
+          <label>dsh 命令路径
+            <input id="set-dsh-command" type="text" placeholder="留空自动探测（PATH → npx 缓存）" />
+          </label>
+          <label>端口
+            <input id="set-port" type="number" min="1" max="65535" />
+          </label>
+          <label class="row">
+            <input id="set-auto-start" type="checkbox" />
+            <span>应用启动时自动拉起服务</span>
+          </label>
+          <label class="row">
+            <input id="set-stop-on-quit" type="checkbox" />
+            <span>退出应用时停止服务</span>
+          </label>
+        </section>
+        <section>
+          <h3>窗口与快捷键</h3>
+          <label>关闭窗口时
+            <select id="set-close-behavior">
+              <option value="tray">最小化到托盘</option>
+              <option value="keep">保持服务运行并退出窗口（最后一个窗口仍最小化）</option>
+              <option value="quit">退出应用</option>
+            </select>
+          </label>
+          <label>快速输入快捷键
+            <input id="set-shortcut-quick" type="text" placeholder="CommandOrControl+Shift+Space" />
+          </label>
+          <label>新窗口快捷键
+            <input id="set-shortcut-new" type="text" placeholder="CommandOrControl+Shift+N" />
+          </label>
+        </section>
+        <section>
+          <h3>通知</h3>
+          <label class="row">
+            <input id="set-notifications" type="checkbox" />
+            <span>审批 / 问题 / Agent 状态系统通知</span>
+          </label>
+        </section>
+        <section>
+          <h3>外观</h3>
+          <label>Harness 页面主题跟随
+            <select id="set-theme-source">
+              <option value="system">系统</option>
+              <option value="light">浅色</option>
+              <option value="dark">深色</option>
+            </select>
+          </label>
+          <label>自定义 CSS（注入 harness 页面）
+            <textarea id="set-custom-css" rows="6" placeholder="例如：&#10;.conversation { max-width: 860px; }&#10;body { font-size: 14px; }" spellcheck="false"></textarea>
+          </label>
+          <div class="drawer-actions">
+            <button class="btn primary" id="btn-settings-save">保存设置</button>
+            <button class="btn" id="btn-settings-reload">重新加载页面</button>
+          </div>
+        </section>
+        <section>
+          <h3>自定义 UI（壳层）</h3>
+          <p class="section-tip">定制桌面壳的外观：背景、强调色、圆角与组件透明度，实时预览，保存后持久化。</p>
+          <label>背景类型
+            <select id="ui-bg-type">
+              <option value="color">纯色</option>
+              <option value="image">图片</option>
+            </select>
+          </label>
+          <div id="ui-bg-color-wrap">
+            <label class="row"><input type="color" id="ui-bg-color" /><span>背景颜色</span></label>
+          </div>
+          <div id="ui-bg-image-wrap" class="hidden">
+            <label>背景图片
+              <input type="text" id="ui-bg-image" placeholder="选择本地图片…" readonly />
+            </label>
+            <button class="btn" id="btn-pick-bg">选择图片…</button>
+          </div>
+          <label>背景模糊 <b class="val" id="ui-blur-val">12</b>
+            <input type="range" id="ui-bg-blur" min="0" max="40" value="12" />
+          </label>
+          <label>背景暗化 <b class="val" id="ui-dim-val">0.35</b>
+            <input type="range" id="ui-bg-dim" min="0" max="90" value="35" />
+          </label>
+          <div class="ui-grid">
+            <label>主强调色 <input type="color" id="ui-accent" /></label>
+            <label>次强调色 <input type="color" id="ui-accent2" /></label>
+          </div>
+          <label>圆角 <b class="val" id="ui-radius-val">10</b>
+            <input type="range" id="ui-radius" min="4" max="20" value="10" />
+          </label>
+          <label>顶栏不透明度 <b class="val" id="ui-titlebar-val">94%</b>
+            <input type="range" id="ui-titlebar-op" min="30" max="100" value="94" />
+          </label>
+          <label>面板不透明度 <b class="val" id="ui-panel-val">92%</b>
+            <input type="range" id="ui-panel-op" min="30" max="100" value="92" />
+          </label>
+          <div class="drawer-actions">
+            <button class="btn primary" id="btn-ui-reset">重置为默认</button>
+            <span class="skill-form-tip">改动实时生效，点「保存设置」持久化</span>
+          </div>
+        </section>
+        <section>
+          <h3>移动端联动</h3>
+          <p class="section-tip">把本机 harness 暴露给同一 Wi-Fi 下的手机浏览器访问（HTTP + 事件流代理）。</p>
+          <label class="row">
+            <input type="checkbox" id="lan-enabled" />
+            <span>启用局域网访问（<b class="warn-text">仅限可信网络，用后即关</b>）</span>
+          </label>
+          <label>代理端口
+            <input id="lan-port" type="number" min="1024" max="65535" value="3180" />
+          </label>
+          <div id="lan-status-box" class="lan-status hidden">
+            <div class="lan-row" id="lan-ips"></div>
+            <div class="lan-row"><span>手机访问地址</span><code id="lan-url"></code></div>
+            <div class="lan-qr-wrap"><img id="lan-qr" alt="二维码" /></div>
+            <button class="btn" id="btn-lan-copy">复制地址</button>
+          </div>
+          <div class="lan-warn">⚠️ 局域网内的任何设备都能访问你的 harness（含执行命令的能力），请勿在公共网络开启。</div>
+        </section>
+        <section>
+          <h3>公网隧道（移动网访问）</h3>
+          <p class="section-tip">手机不在同一 Wi-Fi 时，通过 Cloudflare 免费隧道生成公网地址（移动网/任意网络可访问）。首次使用会自动下载 cloudflared（约 40MB）；若网络无法访问 Cloudflare（如部分地区网络受限），请改用局域网方式或切换网络后重试。</p>
+          <div class="tunnel-status" id="tunnel-box">
+            <div class="lan-row">状态：<b id="tunnel-state">未启动</b></div>
+            <div class="lan-row" id="tunnel-url-row" class="hidden"><span>公网地址</span><code id="tunnel-url"></code></div>
+            <div class="lan-qr-wrap"><img id="tunnel-qr" alt="隧道二维码" class="hidden" /></div>
+            <div class="drawer-actions">
+              <button class="btn primary" id="btn-tunnel-start">启动隧道</button>
+              <button class="btn danger hidden" id="btn-tunnel-stop">停止隧道</button>
+              <button class="btn hidden" id="btn-tunnel-copy">复制地址</button>
+            </div>
+            <div class="lan-warn" id="tunnel-warn">🔴 公网地址人人可访问（含执行命令能力），用完立即停止。</div>
+          </div>
+        </section>
+        <section>
+          <h3>看板智能摘要</h3>
+          <p class="section-tip">用轻量模型（默认 agnes-2.5-flash）为看板节点生成一句话摘要，缓存到本地文件，二次查看直接读取不重新生成。</p>
+          <label class="row">
+            <input type="checkbox" id="set-summary-enabled" />
+            <span>启用智能摘要</span>
+          </label>
+          <label>摘要模型
+            <input id="set-summary-model" type="text" placeholder="agnes-2.5-flash" spellcheck="false" />
+          </label>
+        </section>
+        <section>
+          <h3>多模态模型路由</h3>
+          <p class="section-tip">为不同任务类型配置不同模型，通过「应用到会话」一键切换当前会话所用模型。</p>
+          <div class="model-route" data-role="default">
+            <div class="model-route-head">
+              <span class="model-route-badge">常规任务</span>
+              <span class="model-route-hint">文本对话 / 代码 / Agent 协作</span>
+            </div>
+            <div class="model-route-fields">
+              <label>Provider<input type="text" class="route-provider" placeholder="deepseek-official" /></label>
+              <label>Model<input type="text" class="route-model" placeholder="deepseek-v4-flash" /></label>
+            </div>
+            <div class="model-route-actions">
+              <button class="btn apply-btn" data-role="default">应用到会话</button>
+              <button class="btn link pick-btn" data-role="default">从会话目录选择…</button>
+            </div>
+          </div>
+          <div class="model-route" data-role="vision">
+            <div class="model-route-head">
+              <span class="model-route-badge accent">图片理解</span>
+              <span class="model-route-hint">读图 / 截图分析 / 视觉推理</span>
+            </div>
+            <div class="model-route-fields">
+              <label>Provider<input type="text" class="route-provider" placeholder="如支持视觉的 OpenAI 兼容服务" /></label>
+              <label>Model<input type="text" class="route-model" placeholder="vision 模型名" /></label>
+            </div>
+            <div class="model-route-actions">
+              <button class="btn apply-btn" data-role="vision">应用到会话</button>
+              <button class="btn link pick-btn" data-role="vision">从会话目录选择…</button>
+            </div>
+          </div>
+          <div class="model-route" data-role="image">
+            <div class="model-route-head">
+              <span class="model-route-badge accent2">图片生成</span>
+              <span class="model-route-hint">文生图 / 图生图（走外部 API）</span>
+            </div>
+            <div class="model-route-fields">
+              <label>Provider<input type="text" class="route-provider" placeholder="图片生成服务提供方" /></label>
+              <label>Model<input type="text" class="route-model" placeholder="绘图模型名" /></label>
+            </div>
+            <div class="model-route-actions">
+              <button class="btn apply-btn" data-role="image">应用到会话</button>
+              <button class="btn link pick-btn" data-role="image">从会话目录选择…</button>
+            </div>
+          </div>
+          <div class="model-route" data-role="video">
+            <div class="model-route-head">
+              <span class="model-route-badge accent2">视频生成</span>
+              <span class="model-route-hint">文生视频 / 图生视频（走外部 API）</span>
+            </div>
+            <div class="model-route-fields">
+              <label>Provider<input type="text" class="route-provider" placeholder="视频服务提供方" /></label>
+              <label>Model<input type="text" class="route-model" placeholder="视频模型名" /></label>
+            </div>
+            <div class="model-route-actions">
+              <button class="btn apply-btn" data-role="video">应用到会话</button>
+              <button class="btn link pick-btn" data-role="video">从会话目录选择…</button>
+            </div>
+          </div>
+          <div id="model-picker" class="hidden">
+            <div class="picker-head">
+              <span>会话可用模型</span>
+              <button class="icon-btn" id="btn-picker-close" title="关闭">✕</button>
+            </div>
+            <div id="model-picker-list" class="picker-list"></div>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 知识看板面板 -->
+  <div id="board-mask" class="hidden">
+    <div id="board-panel">
+      <div class="board-head">
+        <div class="board-head-left">
+          <span class="board-title">◈ 知识看板</span>
+          <span class="board-subtitle">会话 · 项目 · 产出物</span>
+        </div>
+        <div class="board-tools">
+          <div class="board-dim" role="group" title="分组维度">
+            <button class="dim-btn active" data-dim="project">项目</button>
+            <button class="dim-btn" data-dim="date">日期</button>
+            <button class="dim-btn" data-dim="theme">主题</button>
+          </div>
+          <div class="board-filter" id="board-filter" title="日期筛选">
+            <button class="f-btn active" data-f="all">全部</button>
+            <button class="f-btn" data-f="today">今天</button>
+            <button class="f-btn" data-f="yesterday">昨天</button>
+            <button class="f-btn" data-f="7d">近7天</button>
+            <button class="f-btn" data-f="30d">近30天</button>
+            <button class="f-btn" data-f="month">本月</button>
+            <button class="f-btn" data-f="custom">自定义</button>
+            <span class="f-custom hidden" id="f-custom-wrap">
+              <input type="date" id="f-from" title="起始日期" />
+              <span class="f-sep">—</span>
+              <input type="date" id="f-to" title="结束日期" />
+            </span>
+          </div>
+          <input id="board-search" type="text" placeholder="搜索会话 / 项目 / 产出物…" spellcheck="false" />
+          <button class="tb-btn" id="btn-board-refresh" title="刷新数据">⟳</button>
+          <button class="icon-btn" id="btn-board-close" title="关闭">✕</button>
+        </div>
+      </div>
+      <div class="board-body">
+        <div class="board-canvas-wrap">
+          <canvas id="board-canvas"></canvas>
+          <div class="board-tooltip hidden" id="board-tooltip"></div>
+          <div class="board-legend" id="board-legend"></div>
+          <div class="board-loading hidden" id="board-loading">加载看板数据…</div>
+          <div class="board-empty hidden" id="board-empty">暂无数据 —— 先在 harness 里开始一个会话</div>
+        </div>
+        <aside class="board-detail" id="board-detail">
+          <div class="board-detail-empty">点击画布中的节点查看详情</div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skill 管理面板 -->
+  <div id="skill-mask" class="hidden">
+    <div id="skill-panel">
+      <div class="skill-head">
+        <div class="skill-head-left">
+          <span class="skill-title">🧩 Skill 管理</span>
+          <span class="skill-subtitle" id="skill-count"></span>
+        </div>
+        <div class="skill-head-actions">
+          <button class="btn primary" id="btn-skill-new">＋ 新建 Skill</button>
+          <button class="icon-btn" id="btn-skill-close" title="关闭">✕</button>
+        </div>
+      </div>
+      <div class="skill-body">
+        <div class="skill-side">
+          <div class="skill-list" id="skill-list"></div>
+        </div>
+        <div class="skill-editor" id="skill-editor">
+          <div class="skill-editor-empty" id="skill-editor-empty">
+            从左侧选择一个 Skill 查看详情，或点击「新建 Skill」开始编写
+          </div>
+          <form class="skill-form hidden" id="skill-form" autocomplete="off">
+            <div class="skill-form-grid">
+              <label>名称（小写字母数字连字符）
+                <input type="text" id="skill-name" placeholder="my-awesome-skill" spellcheck="false" />
+              </label>
+              <label>描述（必填，一段话说明用途）
+                <input type="text" id="skill-desc" placeholder="这个 skill 做什么" />
+              </label>
+            </div>
+            <label>何时使用 whenToUse
+              <input type="text" id="skill-when" placeholder="什么场景下应该调用这个 skill" />
+            </label>
+            <div class="skill-form-row">
+              <label class="row">
+                <input type="checkbox" id="skill-no-model" />
+                <span>禁止模型自动调用（disable-model-invocation）</span>
+              </label>
+              <label class="row">
+                <input type="checkbox" id="skill-not-user" />
+                <span>禁止用户手动调用（user-invocable: false）</span>
+              </label>
+            </div>
+            <label>正文（Markdown 指令内容）
+              <textarea id="skill-body" rows="14" placeholder="# Skill 说明&#10;&#10;## 使用步骤&#10;1. ...&#10;2. ..." spellcheck="false"></textarea>
+            </label>
+            <div class="skill-form-actions">
+              <button type="button" class="btn primary" id="btn-skill-save">保存</button>
+              <button type="button" class="btn danger" id="btn-skill-delete">删除</button>
+              <span class="skill-form-tip" id="skill-form-tip">保存后 harness 自动发现变化，刷新会话页面即可使用</span>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首次启动向导 -->
+  <div id="onboarding" class="hidden">
+    <div class="ob-card">
+      <div class="ob-logo">◈</div>
+      <h1 class="ob-title">Harness Desktop</h1>
+      <p class="ob-sub">AI Harness 桌面端 —— 内置对话、命令面板、知识看板与多模态模型路由</p>
+      <div class="ob-steps" id="ob-steps"></div>
+
+      <!-- 步骤 1：dsh 检测 -->
+      <div class="ob-page" id="ob-page-1">
+        <h2>1 · 检测 Harness 运行环境</h2>
+        <p class="ob-desc">需要 <code>dsh</code> 命令行（DeepSeek Harness）。检测结果：</p>
+        <div class="ob-detect" id="ob-detect"></div>
+        <div class="ob-actions">
+          <button class="btn primary" id="ob-detect-again">重新检测</button>
+          <button class="btn" id="ob-next-1">下一步 →</button>
+        </div>
+      </div>
+
+      <!-- 步骤 2：API Key -->
+      <div class="ob-page hidden" id="ob-page-2">
+        <h2>2 · 配置 API Key</h2>
+        <p class="ob-desc">Key 保存在本地 <code>~/.dsh/.credentials.yaml</code>，不会上传。</p>
+        <label>DeepSeek API Key（主对话模型，必填）
+          <input type="password" id="ob-ds-key" placeholder="sk-…" autocomplete="off" spellcheck="false" />
+        </label>
+        <label>Agnes API Key（可选：图片理解/生成、看板智能摘要）
+          <input type="password" id="ob-ag-key" placeholder="sk-…" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="ob-actions">
+          <button class="btn" id="ob-prev-2">← 上一步</button>
+          <button class="btn primary" id="ob-next-2">下一步 →</button>
+        </div>
+      </div>
+
+      <!-- 步骤 3：默认模型 -->
+      <div class="ob-page hidden" id="ob-page-3">
+        <h2>3 · 选择默认模型</h2>
+        <p class="ob-desc">Agent 协作使用的默认模型（会话内可随时切换）。</p>
+        <label>Provider
+          <select id="ob-provider">
+            <option value="deepseek-official">deepseek-official</option>
+            <option value="agnes">agnes</option>
+          </select>
+        </label>
+        <label>Model
+          <input type="text" id="ob-model" placeholder="deepseek-v4-flash" spellcheck="false" />
+        </label>
+        <div class="ob-actions">
+          <button class="btn" id="ob-prev-3">← 上一步</button>
+          <button class="btn primary" id="ob-finish">完成并启动 →</button>
+        </div>
+      </div>
+      <button class="btn link" id="ob-skip">跳过向导，稍后配置</button>
+    </div>
+  </div>
+
+  <!-- 主题切换动效层 -->
+  <div id="theme-ripple" aria-hidden="true"></div>
+
+  <!-- toast -->
+  <div id="toast-wrap"></div>
+
+  <script src="shell.js"></script>
+</body>
+</html>
