@@ -1,0 +1,71 @@
+# electron-builder 打包配置（Mac + Windows）
+# 用法：
+#   npm run dist:mac    macOS 构建（dmg + zip）
+#   npm run dist:win    Windows 构建（nsis 安装包 + portable）
+#   npm run dist        当前平台构建
+appId: com.dshz.app
+productName: DSH-Z
+copyright: Copyright © 2026 DSH-Z contributors
+
+directories:
+  output: release/dist
+  buildResources: release
+
+artifactName: DSH-Z-${version}-${arch}.${ext}
+
+# 打包内容：应用源码 + 资源（node_modules 自动包含）
+files:
+  - src/**/*
+  - assets/**/*
+  - package.json
+
+asar: true
+
+# 首次启动不强制 asar 内 webview（保留沙箱兼容）
+npmRebuild: false
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  icon: assets/icon.png
+  # 签名与公证：设置 CSC_LINK / CSC_KEY_PASSWORD 后自动签名 + notarize；
+  # 未设置时产出未签名包（首次运行需右键打开或系统设置允许）
+  hardenedRuntime: true
+  entitlements: release/entitlements.mac.plist
+  entitlementsInherit: release/entitlements.mac.plist
+  gatekeeperAssess: false
+
+dmg:
+  title: DSH-Z
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64]
+  icon: assets/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DSH-Z
+
+# 发布目标（配置 GH_TOKEN 后 electron-updater 可用）
+publish:
+  provider: github
+  owner: harness-desktop
+  repo: harness-desktop
