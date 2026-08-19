@@ -642,7 +642,9 @@ stage.addEventListener('drop', (e) => {
   e.preventDefault();
   dragDepth = 0;
   stage.style.outline = '';
-  const files = [...(e.dataTransfer?.files || [])].map((f) => f.path).filter(Boolean);
+  const files = [...(e.dataTransfer?.files || [])]
+    .map((f) => window.desktop.getPathForFile(f))
+    .filter(Boolean);
   if (files.length) {
     window.desktop.notifyDroppedFiles(files);
   }

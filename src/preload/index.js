@@ -3,7 +3,7 @@
 // 只能 require('electron') 的内置子集，不能 require 其他本地文件 —— 常量内联于此。
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // 与 src/shared/constants.js 保持一致的通道名（此处内联以兼容 sandbox）
 const IPC = {
@@ -160,6 +160,10 @@ contextBridge.exposeInMainWorld('desktop', {
   restartHarness: () => ipcRenderer.invoke(IPC.RestartHarness),
 
   // 文件集成
+  // Electron 32 起移除了非标准的 File.path，取真实路径必须走 webUtils。
+  getPathForFile: (file) => {
+    try { return webUtils.getPathForFile(file) || ''; } catch { return ''; }
+  },
   notifyDroppedFiles: (paths) => ipcRenderer.invoke(IPC.NotifyDroppedFiles, paths ?? null),
 
   // 多模态模型路由
